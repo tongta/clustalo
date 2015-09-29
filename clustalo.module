@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * Implements hook_permission().
+ */
+function clustalo_permission() {
+  return array(
+    'administer clustalo' =>  array(
+      'title' => t('Administer clustalo Client'),
+      'description' => t('Perform administration tasks for clustalo Client.'),
+    ),
+  );
+}

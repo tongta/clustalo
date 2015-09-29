@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the onetime_download module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function clustalo_schema() {
+  $schema['clustalo_rest'] = array(
+    'description' => 'Multiple Sequences Alignment by using Clustal Omega.',
+    'fields' => array(
+      'email' => array(
+        'description' => 'User email',
+        'type' => 'varchar',
+        'length' => 128,
+        'default' => '',
+      ),
+      'title' => array(
+        'description' => "Jop Title.",
+        'type' => 'varchar',
+        'length' => 128,
+      ),
+      'jobid' => array(
+        'description' => 'Identification number of jobs.',
+        'type' => 'int',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+    ),
+    'unique keys' => array(
+      'jobid' => array('jobid'),
+    ),
+    'primary key' => array('jobid'),
+  );
+  return $schema;
+}

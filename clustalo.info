@@ -1,0 +1,5 @@
+name = Clustal Omega REST
+description = Send the protein sequences in basket to do multiple sequences alignment with Clustal Omega.
+package = Geneshop Project
+core = 7.x
+files[] = clustalo.module
