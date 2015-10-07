@@ -1,90 +1,305 @@
 <?php
-// Base URL for service
-$baseUrl = 'http://www.ebi.ac.uk/Tools/services/rest/clustalo';
 
-$checkInterval = 10;  // Set interval for checking status
-$outputLevel = 1;  // Output Level
-$debugLevel = 0;  // Debug Level
-$numOpts = len($options);  // Number of option arguments.
-$debugLevel = 0;  // Debug level
+function clustalo_submit_job($parameters) {
+  // Base URL for service
+  $baseUrl = 'http://www.ebi.ac.uk/Tools/services/rest/clustalo';
 
-// Process command-line options
-$parameters = array(
-  // Tool specific options
-  'guidetreeout' => NULL,
-  'noguidetreeout' => NULL,
-  'dismatout' => NULL,
-  'nodismatout' => NULL,
-  'dealign' => NULL,
-  'nodealign' => NULL,
-  'mbed' => NULL,
-  'nombed' => NULL,
-  'mbediteration' => NULL,
-  'nombediteration' => NULL,
-  'iterations' => 0,
-  'gtiterations' => 0,
-  'hmmiterations' => 0,
-  'outfmt' => NULL,
-  'stype' => NULL,
-  'sequence' => NULL,
+  $checkInterval = 10;  // Set interval for checking status
+  $outputLevel = 1;  // Output Level
+  $debugLevel = 0;  // Debug Level
+
+  // Process command-line options
+  $paramOpt = array(
+    // Tool specific options
+    'guidetreeout',
+    'noguidetreeout',
+    'dismatout',
+    'nodismatout',
+    'dealign',
+    'nodealign',
+    'mbed',
+    'nombed',
+    'mbediteration',
+    'nombediteration',
+    'iterations',
+    'gtiterations',
+    'hmmiterations',
+    'outfmt',
+    'stype',
+    'sequence',
+
+    // General options
+    'email',
+    'title',
+    'outfile',
+    'outformat',
+    'jobid',
+    'async',
+    'polljob',
+    'resultTypes',
+    'status',
+    'params',
+    'paramDetail',
+    'quiet',
+    'verbose',
+    'debugLevel',
+    'baseUrl' => $baseUrl,
+    );
+
+  $options = getopt(NULL, $paramOpt);
+  $numOpts = count($options);  // Number of option arguments.
   
-  // General options
-  'email' => '',
-  'title' => '',
-  'outfile' => '',
-  'outformat' => '',
-  'jobid' => '',
-  'async' => NULL,
-  'polljob' => NULL,
-  'resultTypes' => NULL,
-  'status' => NULL,
-  'params' => NULL,
-  'paramDetail' => '',
-  'quiet' => NULL,
-  'verbose' => NULL,
-  'debugLevel' => 0,
-  'baseUrl' => $baseUrl,
-  );
+  // Increase output level
+  if ($options['verbose']) {
+    $outputLevel++;
+  }
+  // Decrease output level
+  elseif ($options['quiet']) {
+    $outputLevel--;
+  }
+  // Debug level
+  if ($options['debugLevel']) {
+    $debugLevel = $options['debugLevel'];
+  }
 
-$options = getopt(NULL, $parameters);
+  // default values for submit job
+  $options['guidetreeout'] = array_key_exists('guidetreeout', $parameters) ? $parameters['guidetreeout'] : false;
+  $options['noguidetreeout'] = array_key_exists('noguidetreeout', $parameters) ? $parameters['guidetreeout'] : true;
+  $options['dismatout'] = array_key_exists('dismatout', $parameters) ? $parameters['dismatout'] : false;
+  $options['nodismatout'] = array_key_exists('nodismatout', $parameters) ? $parameters['nodismatout'] : true;
+  $options['dealign'] = array_key_exists('dealign', $parameters) ? $parameters['dealign'] : false;
+  $options['nodealign'] = array_key_exists('nodealign', $parameters) ? $parameters['nodealign'] : true;
+  $options['mbed'] = array_key_exists('mbed', $parameters) ? $parameters['mbed'] : false;
+  $options['nombed'] = array_key_exists('nombed', $parameters) ? $parameters['nombed'] : true;
+  $options['mbediteration'] = array_key_exists('mbediteration', $parameters) ? $parameters['mbediteration'] : false;
+  $options['nombediteration'] = array_key_exists('nombediteration', $parameters) ? $parameters['nombediteration'] : true;
+  $options['iterations'] = array_key_exists('iterations', $parameters) ? $parameters['iterations'] : 0;
+  $options['gtiterations'] = array_key_exists('gtiterations', $parameters) ? $parameters['gtiterations'] : 0;
+  $options['hmmiterations'] = array_key_exists('hmmiterations', $parameters) ? $parameters['hmmiterations'] : 0;
+  $options['outfmt'] = array_key_exists('outfmt', $parameters) ? $parameters['outfmt'] : '';
+  $options['stype'] = array_key_exists('stype', $parameters) ? $parameters['stype'] : '';
+  $options['sequence'] = array_key_exists('sequence', $parameters) ? $parameters['sequence'] : '';
 
-// Increase output level
-if ($options['verbose']) {
-  $outputLevel++;
-}
-// Decrease output level
-elseif ($options['quiet']) {
-  $outputLevel--;
-}
-// Debug level
-if ($options['debugLevel']) {
-  $debugLevel = $options['debugLevel'];
+  $options['email'] = array_key_exists('email', $parameters) ? $parameters['email'] : '';
+  $options['title'] = array_key_exists('title', $parameters) ? $parameters['title'] : '';
+  $options['outfile'] = array_key_exists('outfile', $parameters) ? $parameters['outfile'] : '';
+  $options['outformat'] = array_key_exists('outformat', $parameters) ? $parameters['outformat'] : '';
+  $options['jobid'] = array_key_exists('jobid', $parameters) ? $parameters['jobid'] : '';
+
+  // Submit job
+  if (($options['email'] != '') && ($options['jobid']=='') && ($options['sequence'] != '')) {
+    $params = array();
+    $params['email'] = $options['email'];
+    $params['guidetreeout'] = $options['guidetreeout'];
+    $params['dismatout'] = $options['dismatout'];
+    $params['dealign'] = $options['dealign'];
+    $params['mbed'] = $options['mbed'];
+    $params['mbediteration'] = $options['mbediteration'];
+    $params['sequence'] = $options['sequence'];
+
+    if ($options['stype'] != '') {
+      $params['stype'] = $options['stype'];
+    }
+    if ($options['iterations'] != 0) {
+      $params['iterations'] = $options['iterations'];
+    }
+    if ($options['gtiterations'] != 0) {
+      $params['gtiterations'] = $options['gtiterations'];
+    }
+    if ($options['hmmiterations'] != 0) {
+      $params['hmmiterations'] = $options['hmmiterations'];
+    }
+    if ($options['outfmt'] != '') {
+      $params['outfmt'] = $options['outfmt'];
+    }
+    $jobId = _serviceRun($baseUrl, $params);
+    sleep(5);
+    clustalo_get_result($jobId, $checkInterval, $baseUrl);
+  }
+
+  // Get job status
+  elseif (($options['status']!=NULL) && ($options['jobid']!='')) {
+    _printGetStatus($options['jobid']);
+  }
+  // List result types for job
+  elseif (($options['resultTypes']!=NULL) && ($options['jobid']!='')) {
+    _printGetResultTypes($options['resultTypes']);
+  }
+  // Get results for job
+  elseif (($options['polljob']!=NULL) && ($options['jobid'])!='') {
+    clustero_get_result($options['jobid']);
+  }
+  else {
+    drupal_set_message(t('Error: unrecognised argument combinations'), 'error');
+  }
 }
 
 /*
- * Debug print
+ * Submit job
  */
-function _printDebugMessage($functionName, $message, $level) {
-  $stderr = fopen('php://stderr', 'w+');
-  if ($level <= $debuglevel) {
-    fwrite($stderr,('['.$functionName.']'.$message));
-    print $stderr;
-  fclose($stderr);
+function _serviceRun($baseUrl, $options) {
+  drupal_set_message(t('[_serviceRun] Begin'), 'status');
+
+  $requestUrl = $baseUrl."/run/";
+  drupal_set_message(t('[_serviceRun] requestUrl: '.$requestUrl), 'status');
+
+  // Make the submission (HTTP POST).
+  $postdata = http_build_query($options);
+  $option = array('http' => array(
+                 'method' => 'POST',
+                 'header' => 'Content-type: application/x-www-form-urlencoded',
+                 'content' => $postdata
+               )
+             );
+  $context = stream_context_create($option);
+  $jobId = file_get_contents($requestUrl, false, $context);
+  drupal_set_message(t('[_serviceRun] jobId: '.$jobId), 'status');
+  drupal_set_message(t('[_serviceRun] End'), 'status');
+  return $jobId;
+}
+
+/*
+ * Get result for a jobid
+ */
+function clustalo_get_result($jobId, $checkInterval, $baseUrl) {
+  drupal_set_message(t('[clustalo_get_result] Begin'), 'status');
+  drupal_set_message(t('[clustalo_get_result] jobId: '.$jobId), 'status');
+  // Check status and wait if necessary
+  _clientPoll($jobId, $checkInterval, $baseUrl);
+
+  // Get available result types
+  $resultTypes = _serviceGetResultTypes($jobId, $baseUrl);
+  $xml = simplexml_load_string($resultTypes);
+  $i = 0;
+  $data = '';
+  $filename = $jobId.".txt"; // filename for the result
+  while ($i < count($xml->type)) {
+    $type = array();
+    $type = $xml->type[$i];
+
+    // Get the result.
+    $result = _serviceGetResult($jobId, $type->identifier, $baseUrl);
+
+    if (($type->mediaType=="image/png") || ($type->mediaType=="image/jpeg") || ($type->mediaType=="application/gzip")) {
+    }
+    else {
+      $data .= $jobId.".".$type->identifier."\n";
+      $data .= $result."\n";
+    }
+    $i++;
   }
+  drupal_add_http_header('Content-Type: text/plain');
+  drupal_add_http_header('Content-Disposition', 'attachment; filename='.$filename);
+  print $data;
+  drupal_exit();
+  drupal_set_message(t('[clustalo_get_result] End'), 'status');
+}
+
+/*
+ * Client-side poll
+ */
+function _clientPoll($jobId, $checkInterval, $baseUrl) {
+  drupal_set_message(t('[_clientPoll] Begin'), 'status');
+  $result = 'PENDING';
+  while (($result == 'RUNNING') || ($result == 'PENDING')) {
+    $result = _serviceGetStatus($jobId, $baseUrl);
+    //file_put_contents($stderr, $result);
+    if (($result == 'RUNNING') or ($result == 'PENDING')) {
+      sleep($checkInterval);
+    }
+  }
+  drupal_set_message(t('[_clientPoll] End'), 'status');
+}
+
+/*
+ * Get job status
+ */
+function _serviceGetStatus($jobId, $baseUrl) {
+  drupal_set_message(t('[_serviceGetStatus] Begin'), 'status');
+  drupal_set_message(t('[_serviceGetStatus] jobId: '.$jobId), 'status');
+  $requestUrl = $baseUrl."/status/".$jobId;
+
+  drupal_set_message(t('[_serviceGetStatus] requestUrl: '.$requestUrl), 'status');
+  $status = clustalo_rest_request($requestUrl);
+  drupal_set_message(t('[_serviceGetStatus] status: '.$status), 'status');
+  drupal_set_message(t('[_serviceGetStatus] End'), 'status');
+  return $status;
+}
+
+/*
+ * Print the status of a job
+ *
+function _printGetStatus($jobId){
+  drupal_set_message(t('[_serviceGetStatus] Begin'), 'status');
+  $status = _serviceGetStatus($jobId);
+  print $status;
+  drupal_set_message(t('[_serviceGetStatus] End'), 'status');
+}*/
+
+/*
+ * Get available result types for job
+ */
+function _serviceGetResultTypes($jobId, $baseUrl){
+  drupal_set_message(t('[_serviceGetResultTypes] Begin'), 'status');
+  drupal_set_message(t('[_serviceGetResultTypes] jobId: '.$jobId), 'status');
+  $requestUrl = $baseUrl."/resulttypes/".$jobId;
+
+  drupal_set_message(t('[_serviceGetResultTypes] requestUrl: '.$requestUrl), 'status');
+  $resultTypes = clustalo_rest_request($requestUrl);
+
+  drupal_set_message(t('[_serviceGetResultTypes] End'), 'status');
+  return $resultTypes;
+}
+
+/*
+ * Print list of available result types for a job.
+ *
+function _printGetResultTypes($jobId) {
+  drupal_set_message(t('[_printGetResultTypes] Begin'), 'status');
+  $xmlDoc = _serviceGetResultTypes($jobId);
+  $xml = simplexml_load_string($xmlDoc);
+  foreach ($xml->resultType as $resultType) {
+    print ($resultType['identifier']);
+    if (array_key_exists($resultType['label'])) {
+      print "\t".$resultType['label'];
+    }
+    if (array_key_exists($resultType['description'])) {
+      print "\t".$resultType['description'];
+    }
+    if (array_key_exists($resultType['mediaType'])) {
+      print "\t".$resultType['mediaType'];
+    }
+    if(array_key_exists($resultType['fileSuffix'])) {
+      print "\t".$resultType['fileSuffix'];
+    }
+  }
+  drupal_set_message(t('[_printGetResultTypes] End'), 'status');
+}*/
+
+/*
+ * Get result
+ */
+function _serviceGetResult($jobId, $type, $baseUrl) {
+  drupal_set_message(t('[_serviceGetResult] Begin'), 'status');
+  drupal_set_message(t('[_serviceGetResult] jobId: '.$jobId), 'status');
+  drupal_set_message(t('[_serviceGetResult] type: '.$type), 'status');
+  $requestUrl = $baseUrl.'/result/'.$jobId.'/'.$type;
+  $result = file_get_contents($requestUrl);
+  drupal_set_message(t('[_serviceGetResult] End'), 'status');
+  return $result;
 }
 
 /*
  * User-agent for request
  */
-function clustalo_get_user_agent() {
-  _printDebugMessage('clustalo_get_user_agent', 'Begin', 11);
+function _getUserAgent() {
+  drupal_set_message(t('[_getUserAgent] Begin'), 'status');
   // Set 'User-Agent' HTTP header to identify the client.
   $user_agent = 'Drupal(+http://drupal.org)';
-  //$revisionNumber = $1;
   $user_agent = 'EBI-Sample-Client/'. __file__ . base_path().$user_agent;
-  
-  _printDebugMessage('clustalo_get_user_agent', 'user_agent: '.$user_agent, 12);
-  _printDebugMessage('clustalo_get_user_agent', 'End', 11);
+
+  drupal_set_message(t('[_getUserAgent] user_agent: '.$user_agent), 'status');
+  drupal_set_message(t('[_getUserAgent] End'), 'status');
   return $user_agent;
 }
 
@@ -92,81 +307,82 @@ function clustalo_get_user_agent() {
  * Wrapper for a REST (HTTP GET) request
  */
 function clustalo_rest_request($url) {
-  _printDebugMessage('clustalo_rest_request', 'Begin', 11);
-  _printDebugMessage('clustalo_rest_request', 'url: '.$url, 11);
-  try {
-    $user_agent = clustalo_get_user_agent();
-    $http_headers = array('User-Agent' => $user_agent);
-    $request = drupal_http_request($url, $http_headers);
-    // Make the request (HTTP GET).
-    $reqH = get_object_vars($request);
-    $contentType = $request->headers['content-type'];
-    
-    if (count($request)>0 && $contentType != "image/png;charset=UTF-8" && $contentType != "image/jpeg;charset=UTF-8" && contentType != "application/gzip;charset=UTF-8") {
-      $result = utf8_encode(ToString($request));  //python result = str(regH, 'utf-8')
-    }
-    else {
-      $result = $response;
-    }
+  drupal_set_message(t('[clustalo_rest_request] Begin'), 'status');
+  drupal_set_message(t('[clustalo_rest_request] url: '.$url), 'status');
+  $user_agent = _getUserAgent();
+  $http_headers = array('User-Agent' => $user_agent);
+  $request = drupal_http_request($url);
+  // Make the request (HTTP GET).
+  $reqH = get_object_vars($request);
+  $contentType = $request->headers['content-type'];
+  if ((count($reqH)>0) && ($contentType!="image/png;charset=UTF-8") && ($contentType!="image/jpeg;charset=UTF-8") && ($contentType!="application/gzip;charset=UTF-8")) {
+    $result = $request->data;
   }
-  catch {}
-  _printDebugMessage('clustalo_rest_request', 'End', 11);
+  else {
+    $result = $reqH;
+  }
+  drupal_set_message(t('[clustalo_rest_request] End'), 'status');
   return $result;
 }
 
 /*
  * Get input parameters list
  */
-function _serviceGetParameters() {
-  _printDebugMessage('_serviceGetParameters', 'Begin', 1);
+function _serviceGetParameters($baseUrl) {
+  drupal_set_message(t('[_serviceGetParameters] Begin'), 'status');
   $requestUrl = $baseUrl.'/parameters';
-  _printDebugMessage('_serviceGetParameters', 'requestUrl: '.$requestUrl, 2);
-  $xmlDoc = clustalo_rest_request($requestUrl);
-  $doc = drupal_xml_parser_create($xmlDoc);
-  _printDebugMessage('_serviceGetParameters', 'End', 1);
-  return $doc['id'];
+
+  drupal_set_message(t('[_serviceGetParameters] requestUrl: '.$requestUrl), 'status');
+  $xmlDoc = clustalo_rest_request($requestUrl); // xml-string data
+
+  drupal_set_message(t('[_serviceGetParameters] End'), 'status');
+  return $xmlDoc;
 }
 
 /*
  * Print list of parameters
  */
 function _printGetParameters() {
-  _printDebugMessage('_printGetParameters', 'Begin', 1);
-  $idList = _serviceGetParameters();
-  foreach ($idList as $id) {
-    print ($id);
+  drupal_set_message(t('[_printGetParameters] Begin'), 'status');
+  $xmlDoc = _serviceGetParameters(); // Data in xml string form.
+  $idList = simplexml_load_string($xmlDoc); // Turn data to object
+  foreach ($idList->id as $parameter) {
+    print $parameter."\n";
   }
-  _printDebugMessage('_printGetParameters', 'End', 1);
+  drupal_set_message(t('[_printGetParameters] End'), 'status');
 }
 
 /*
  * Get input parameter information
  */
-function _serviceGetParameterDetails($paramName) {
-  _printDebugMessage('_serviceGetParameterDetails', 'Begin', 1);
-  _printDebugMessage('_serviceGetParameterDetails', 'requestUrl: '.$paramName, 2);
+/*function _serviceGetParameterDetails($paramName) {
+  drupal_set_message(t('[_serviceGetParameterDetails] Begin'), 'status');
+  drupal_set_message(t('[_serviceGetParameterDetails] paramName: '.$paramName), 'status');
   $requestUrl = $baseUrl."/parameterdetails".$paramName;
+  drupal_set_message(t('[_serviceGetParameterDetails] requestUrl: '.$requestUrl), 'status');
+
   $xmlDoc = clustalo_rest_request($requestUrl);
-  $doc = drupal_xml_parser_create($xmlDoc);
-  _printDebugMessage('serviceGetParameterDetails', 'End', 1);
-  return $doc;
-}
+  drupal_set_message(t('[_serviceGetParameterDetails] End'), 'status');
+  return $xmlDoc;
+}*/
 
 /*
  * Print description of a parameter
  */
-function _printGetParameterDetails($paramName) {
-  _printDebugMessage('_printGetParameterDetails', 'Begin', 1);
-  $doc = _serviceGetParameterDetails($paramName);
-  print string($doc['name'])."\t".string($doc['type']);
-  print $doc['description']
-  foreach $doc['value'] in $value as $values {
-    print ($value['value']).' ';
-    if string($value->defaultValue) == 'true' {
-      print 'default';
+/*function _printGetParameterDetails($paramName) {
+  drupal_set_message(t('[_printGetParameterDetails] Begin'), 'status');
+  $xmlDoc = _serviceGetParameterDetails($paramName);
+  $xml = simplexml_load_string($xmlDoc);
+
+  $detail = '';
+  $detail .= $xml->name."\t".$xml->type."\n".$xml->description;
+  foreach ($doc->value as $value) {
+    $detail .= $value.' ';
+    if ((string)$value['defaultValue']) == 'true' {
+      $detail .= 'default';
     }
-    print "\n"."\t".string($value->label);
-    if ($value['properties']) {
+    $detail .= "\n"."\t".string($value->label);
+    if (array_key_exists($value['properties'])) {
       foreach ($value['properties'] as $properties => $property) {
         if $property == 'wsProperty' {
           print "\t".string($property['wsProperty']['key'])."\t".
@@ -174,257 +390,6 @@ function _printGetParameterDetails($paramName) {
       }
     }
   }
-}
+  drupal_set_message(t('[_printGetParameterDetails] End'), 'status');
+}*/
 
-/*
- * Submit job
- */
-function _serviceRun($email, $title, $params) {
-  _printDebugMessage('_serviceRun', 'Begin', 1);
-  // Insert e-mail and title into params
-  $params['email'] = $email;
-  if ($title) {
-    $params['title'] = $title;
-  }
-  $requestUrl = $baseUrl."/run/";
-  _printDebugMessage('serviceRun', 'requestUrl: '.$requestUrl, 2);
-
-  // Get the data for the other options
-  $requestData = urllib.parse.urlencode($params);
-
-  _printDebugMessage('serviceRun', 'requestData: '.$requestData, 2);
-  // Errors are indicated by HTTP status codes.
-  try {
-    // Set the HTTP User-agent.
-    $user_agent = clustalo_get_user_agent();
-    $http_headers = array('User-Agent' => $user_agent);
-    $request = clustalo_rest_request($requestUrl, array('headers' => $http_headers), 'POST', $params);
-    // Make the submission (HTTP POST).
-  }
-  catch (Exception 
-  except urllib2.HTTPError as ex:
-    // Trap exception and output the document to get error message.
-    print (ex.read(), file=sys.stderr)
-    raise
-    _printDebugMessage('serviceRun', 'jobId: ' + jobId, 2)
-    _printDebugMessage('serviceRun', 'End', 1)
-    return jobId
-}
-
-/*
- * Get job status
- */
-function _serviceGetStatus($jobId) {
-  _printDebugMessage('serviceGetStatus', 'Begin', 1);
-  _printDebugMessage('serviceGetStatus', 'jobId: '.$jobId, 2);
-  $requestUrl = $baseUrl."/status/".$jobId;
-  _printDebugMessage('serviceGetStatus', 'requestUrl: '.$requestUrl, 2);
-  $status = restRequest($requestUrl);
-  _printDebugMessage('serviceGetStatus', 'status: '.$status, 2);
-  _printDebugMessage('serviceGetStatus', 'End', 1);
-  return $status;
-}
-
-
-/*
- * Print the status of a job
- */
-function _printGetStatus($jobId){
-  _printDebugMessage('_printGetStatus', 'Begin', 1);
-  $status = _serviceGetStatus($jobId);
-  print $status;
-  _printDebugMessage('_printGetStatus', 'End', 1);
-}
-
-/*
- * Get available result types for job
- */
-function _serviceGetResultTypes($jobId){
-  _printDebugMessage('_serviceGetResultTypes', 'Begin', 1);
-  _printDebugMessage('_serviceGetResultTypes', 'jobId: '.$jobId, 2);
-  $requestUrl = $baseUrl."/resulttypes/".$jobId;
-  _printDebugMessage('_serviceGetResultTypes', 'requestUrl: '.$requestUrl, 2);
-  $xmlDoc = clustalo_rest_request($requestUrl);
-  $doc = drupal_xml_parser_create($xmlDoc);
-  _printDebugMessage('_serviceGetResultTypes', 'End', 1);
-  return $doc['type'];
-}
-
-/*
- * Print list of available result types for a job.
- */
-function _printGetResultTypes($jobId) {
-  _printDebugMessage('_printGetResultTypes', 'Begin', 1);
-  $resultTypeList = _serviceGetResultTypes($jobId);
-  foreach ($resultTypeList as $resultType) {
-    print ($resultType['identifier'])
-    if ($resultType['label']) {
-      print "\t".$resultType['label'];
-    }
-    if ($resultType['description']) {
-      print "\t".$resultType['description'];
-    }
-    if ($resultType['mediaType']) {
-      print "\t".$resultType['mediaType'];
-    }
-    if($resultType['fileSuffix']) {
-      print "\t".$resultType['fileSuffix'];
-    }
-  }
-  _printDebugMessage('_printGetResultTypes', 'End', 1);
-}
-
-/*
- * Get result
- */
-function _serviceGetResult($jobId, $type_) {
-  _printDebugMessage('serviceGetResult', 'Begin', 1);
-  _printDebugMessage('serviceGetResult', 'jobId: '.$jobId, 2);
-  _printDebugMessage('serviceGetResult', 'type_: '.$type_, 2);
-  $requestUrl = $baseUrl.'/result/'.$jobId.'/'.$type_;
-  $result = restRequest($requestUrl);
-  _printDebugMessage('serviceGetResult', 'End', 1)
-  return $result;
-}
-
-/*
- * Client-side poll
- */
-function clientPoll($jobId) {
-  _printDebugMessage('clientPoll', 'Begin', 1);
-  $result = 'PENDING';
-  while ($result == 'RUNNING') || ($result == 'PENDING') {
-    $result = _serviceGetStatus($jobId);
-    file_put_contents($stderr, $result);
-    if ($result == 'RUNNING') or ($result == 'PENDING') {
-      sleep($checkInterval);
-    }
-  }
-  _printDebugMessage('clientPoll', 'End', 1);
-}
-
-/*
- * Get result for a jobid
- */
-function clustalo_get_result($jobId) {
-  _printDebugMessage('clustalo_get_result', 'Begin', 1);
-  _printDebugMessage('clustalo_get_result', 'jobId: '.$jobId, 1);
-  # Check status and wait if necessary
-  clientPoll($jobId);
-  # Get available result types
-  $resultTypes = _serviceGetResultTypes($jobId);
-  foreach ($resultTypes as $resultType) {
-    # Derive the filename for the result
-    if options.outfile:
-    filename = options.outfile + '.' + str(resultType['identifier']) + '.' + str(resultType['fileSuffix'])
-    else:
-    filename = jobId + '.' + str(resultType['identifier']) + '.' + str(resultType['fileSuffix'])
-    # Write a result file
-    if not options.outformat or options.outformat == str(resultType['identifier']):
-      # Get the result
-      result = serviceGetResult(jobId, str(resultType['identifier']))
-    if(str(resultType['mediaType']) == "image/png"
-    or str(resultType['mediaType']) == "image/jpeg"
-    or str(resultType['mediaType']) == "application/gzip"):
-      fmode= 'wb'
-    else:
-      fmode='w'
-      fh = open(filename, fmode);
-      file_put_contents($fh, $result);
-      fclose($fh);
-      print ($filename);
-  }
-    _printDebugMessage('clustalo_get_result', 'End', 1);
-}
-
-/*
- * Read a file
- */
-function readFile($filename){
-  _printDebugMessage('readFile', 'Begin', 1)
-  $fh = fopen($filename, 'r')
-  $data = fread($fh, filesize($filename));
-  fclose($fh);
-  _printDebugMessage('readFile', 'End', 1);
-  return $data;
-}
-
-/*
- * No options... print help.
- *
-if numOpts < 2:
-  parser.print_help()
-# List parameters
-elif options.params:
-  printGetParameters()
-# Get parameter details
-elif options.paramDetail:
-  printGetParameterDetails(options.paramDetail)
-# Submit job
-elif options.email and not options.jobid:
-  params = {}
-  if len(args) > 0:
-    if os.access(args[0], os.R_OK): # Read file into content
-      params['sequence'] = readFile(args[0])
-    else: # Argument is a sequence id
-      params['sequence'] = args[0]
-    elif options.sequence: # Specified via option
-      if os.access(options.sequence, os.R_OK): # Read file into content
-        params['sequence'] = readFile(options.sequence)
-      else: # Argument is a sequence id
-         params['sequence'] = options.sequence
-  # Booleans need to be represented as 1/0 rather than True/False
-  if options.guidetreeout:
-    params['guidetreeout'] = True
-  else:
-    params['guidetreeout'] = False
-  if options.dismatout:
-    params['dismatout'] = True
-  else:
-    params['dismatout'] = False
-  if options.dealign:
-    params['dealign'] = True
-  else:
-    params['dealign'] = False
-  if options.mbed:
-    params['mbed'] = True
-  else:
-    params['mbed'] = False
-  if options.mbediteration:
-    params['mbediteration'] = True
-  else:
-    params['mbediteration'] = False
-
-  # Add the other options (if defined)
-  if options.stype:
-    params['stype'] = options.stype
-  if options.iterations:
-    params['iterations'] = options.iterations
-  if options.gtiterations:
-    params['gtiterations'] = options.gtiterations
-  if options.hmmiterations:
-    params['hmmiterations'] = options.hmmiterations
-  if options.outfmt:
-    params['outfmt'] = options.outfmt
-    
-  # Submit the job
-  jobid = serviceRun(options.email, options.title, params)
-  if options.async: # Async mode
-    print (jobid)
-  else: # Sync mode
-    print (jobid, file=sys.stderr)
-    time.sleep(5)
-    getResult(jobid)
-# Get job status
-elif options.status and options.jobid:
-  printGetStatus(options.jobid)
-# List result types for job
-elif options.resultTypes and options.jobid:
-  printGetResultTypes(options.jobid)
-# Get results for job
-elif options.polljob and options.jobid:
-  getResult(options.jobid)
-else:
-  print ('Error: unrecognised argument combination', file=sys.stderr)
-  parser.print_help()
-  */
