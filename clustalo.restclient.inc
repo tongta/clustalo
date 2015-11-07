@@ -1,6 +1,9 @@
 <?php
-
-function clustalo_submit_job($parameters) {
+/*
+ * Main function to do multiple sequences alignment
+ * by sending to clustal omega (REST).
+ */
+function clustalo_submit_job($parameters, $phylo) {
   // Base URL for service
   $baseUrl = 'http://www.ebi.ac.uk/Tools/services/rest/clustalo';
 
@@ -114,7 +117,7 @@ function clustalo_submit_job($parameters) {
     }
     $jobId = _serviceRun($baseUrl, $params);
     sleep(5);
-    clustalo_get_result($jobId, $checkInterval, $baseUrl);
+    $result = clustalo_get_result($jobId, $checkInterval, $baseUrl, $phylo);
   }
 
   // Get job status
@@ -127,22 +130,19 @@ function clustalo_submit_job($parameters) {
   }
   // Get results for job
   elseif (($options['polljob']!=NULL) && ($options['jobid'])!='') {
-    clustero_get_result($options['jobid']);
+    clustero_get_result($options['jobid'], $checkInterval, $baseUrl, $phylo);
   }
   else {
     drupal_set_message(t('Error: unrecognised argument combinations'), 'error');
   }
+  return $result;
 }
 
 /*
  * Submit job
  */
 function _serviceRun($baseUrl, $options) {
-  drupal_set_message(t('[_serviceRun] Begin'), 'status');
-
   $requestUrl = $baseUrl."/run/";
-  drupal_set_message(t('[_serviceRun] requestUrl: '.$requestUrl), 'status');
-
   // Make the submission (HTTP POST).
   $postdata = http_build_query($options);
   $option = array('http' => array(
@@ -161,9 +161,7 @@ function _serviceRun($baseUrl, $options) {
 /*
  * Get result for a jobid
  */
-function clustalo_get_result($jobId, $checkInterval, $baseUrl) {
-  drupal_set_message(t('[clustalo_get_result] Begin'), 'status');
-  drupal_set_message(t('[clustalo_get_result] jobId: '.$jobId), 'status');
+function clustalo_get_result($jobId, $checkInterval, $baseUrl, $phylo) {
   // Check status and wait if necessary
   _clientPoll($jobId, $checkInterval, $baseUrl);
 
@@ -172,34 +170,41 @@ function clustalo_get_result($jobId, $checkInterval, $baseUrl) {
   $xml = simplexml_load_string($resultTypes);
   $i = 0;
   $data = '';
-  $filename = $jobId.".txt"; // filename for the result
-  while ($i < count($xml->type)) {
-    $type = array();
-    $type = $xml->type[$i];
+  if ($phylo == false) {
+    $filename = $jobId.".txt"; // filename for the result
+    while ($i < count($xml->type)) {
+      $type = array();
+      $type = $xml->type[$i];
 
-    // Get the result.
-    $result = _serviceGetResult($jobId, $type->identifier, $baseUrl);
-
-    if (($type->mediaType=="image/png") || ($type->mediaType=="image/jpeg") || ($type->mediaType=="application/gzip")) {
+      // Get the result.
+      if ($type->identifier == 'aln-clustal') {
+        $result = _serviceGetResult($jobId, $type->identifier, $baseUrl);
+        $data .= "Clustal Omega Job ID: ".$jobId."\n\n";
+        $data .= $result."\n";
+      }
+      $i++;
     }
-    else {
-      $data .= $jobId.".".$type->identifier."\n";
-      $data .= $result."\n";
-    }
-    $i++;
   }
-  drupal_add_http_header('Content-Type: text/plain');
-  drupal_add_http_header('Content-Disposition', 'attachment; filename='.$filename);
-  print $data;
-  drupal_exit();
-  drupal_set_message(t('[clustalo_get_result] End'), 'status');
+  else {
+    while ($i < count($xml->type)) {
+      $type = array();
+      $type = $xml->type[$i];
+
+      // Get the phylogenetic tree result.
+      if ($type->identifier == 'phylotree') {
+        $result = _serviceGetResult($jobId, $type->identifier, $baseUrl);
+        $data .= $result."\n";
+      }
+      $i++;
+    }
+  }
+  return $data;
 }
 
 /*
  * Client-side poll
  */
 function _clientPoll($jobId, $checkInterval, $baseUrl) {
-  drupal_set_message(t('[_clientPoll] Begin'), 'status');
   $result = 'PENDING';
   while (($result == 'RUNNING') || ($result == 'PENDING')) {
     $result = _serviceGetStatus($jobId, $baseUrl);
@@ -208,21 +213,14 @@ function _clientPoll($jobId, $checkInterval, $baseUrl) {
       sleep($checkInterval);
     }
   }
-  drupal_set_message(t('[_clientPoll] End'), 'status');
 }
 
 /*
  * Get job status
  */
 function _serviceGetStatus($jobId, $baseUrl) {
-  drupal_set_message(t('[_serviceGetStatus] Begin'), 'status');
-  drupal_set_message(t('[_serviceGetStatus] jobId: '.$jobId), 'status');
   $requestUrl = $baseUrl."/status/".$jobId;
-
-  drupal_set_message(t('[_serviceGetStatus] requestUrl: '.$requestUrl), 'status');
   $status = clustalo_rest_request($requestUrl);
-  drupal_set_message(t('[_serviceGetStatus] status: '.$status), 'status');
-  drupal_set_message(t('[_serviceGetStatus] End'), 'status');
   return $status;
 }
 
@@ -240,14 +238,8 @@ function _printGetStatus($jobId){
  * Get available result types for job
  */
 function _serviceGetResultTypes($jobId, $baseUrl){
-  drupal_set_message(t('[_serviceGetResultTypes] Begin'), 'status');
-  drupal_set_message(t('[_serviceGetResultTypes] jobId: '.$jobId), 'status');
   $requestUrl = $baseUrl."/resulttypes/".$jobId;
-
-  drupal_set_message(t('[_serviceGetResultTypes] requestUrl: '.$requestUrl), 'status');
   $resultTypes = clustalo_rest_request($requestUrl);
-
-  drupal_set_message(t('[_serviceGetResultTypes] End'), 'status');
   return $resultTypes;
 }
 
@@ -280,12 +272,8 @@ function _printGetResultTypes($jobId) {
  * Get result
  */
 function _serviceGetResult($jobId, $type, $baseUrl) {
-  drupal_set_message(t('[_serviceGetResult] Begin'), 'status');
-  drupal_set_message(t('[_serviceGetResult] jobId: '.$jobId), 'status');
-  drupal_set_message(t('[_serviceGetResult] type: '.$type), 'status');
   $requestUrl = $baseUrl.'/result/'.$jobId.'/'.$type;
   $result = file_get_contents($requestUrl);
-  drupal_set_message(t('[_serviceGetResult] End'), 'status');
   return $result;
 }
 
@@ -293,13 +281,9 @@ function _serviceGetResult($jobId, $type, $baseUrl) {
  * User-agent for request
  */
 function _getUserAgent() {
-  drupal_set_message(t('[_getUserAgent] Begin'), 'status');
   // Set 'User-Agent' HTTP header to identify the client.
   $user_agent = 'Drupal(+http://drupal.org)';
   $user_agent = 'EBI-Sample-Client/'. __file__ . base_path().$user_agent;
-
-  drupal_set_message(t('[_getUserAgent] user_agent: '.$user_agent), 'status');
-  drupal_set_message(t('[_getUserAgent] End'), 'status');
   return $user_agent;
 }
 
@@ -307,8 +291,6 @@ function _getUserAgent() {
  * Wrapper for a REST (HTTP GET) request
  */
 function clustalo_rest_request($url) {
-  drupal_set_message(t('[clustalo_rest_request] Begin'), 'status');
-  drupal_set_message(t('[clustalo_rest_request] url: '.$url), 'status');
   $user_agent = _getUserAgent();
   $http_headers = array('User-Agent' => $user_agent);
   $request = drupal_http_request($url);
@@ -321,7 +303,6 @@ function clustalo_rest_request($url) {
   else {
     $result = $reqH;
   }
-  drupal_set_message(t('[clustalo_rest_request] End'), 'status');
   return $result;
 }
 
@@ -329,13 +310,8 @@ function clustalo_rest_request($url) {
  * Get input parameters list
  */
 function _serviceGetParameters($baseUrl) {
-  drupal_set_message(t('[_serviceGetParameters] Begin'), 'status');
   $requestUrl = $baseUrl.'/parameters';
-
-  drupal_set_message(t('[_serviceGetParameters] requestUrl: '.$requestUrl), 'status');
   $xmlDoc = clustalo_rest_request($requestUrl); // xml-string data
-
-  drupal_set_message(t('[_serviceGetParameters] End'), 'status');
   return $xmlDoc;
 }
 
@@ -343,53 +319,9 @@ function _serviceGetParameters($baseUrl) {
  * Print list of parameters
  */
 function _printGetParameters() {
-  drupal_set_message(t('[_printGetParameters] Begin'), 'status');
   $xmlDoc = _serviceGetParameters(); // Data in xml string form.
   $idList = simplexml_load_string($xmlDoc); // Turn data to object
   foreach ($idList->id as $parameter) {
     print $parameter."\n";
   }
-  drupal_set_message(t('[_printGetParameters] End'), 'status');
 }
-
-/*
- * Get input parameter information
- */
-/*function _serviceGetParameterDetails($paramName) {
-  drupal_set_message(t('[_serviceGetParameterDetails] Begin'), 'status');
-  drupal_set_message(t('[_serviceGetParameterDetails] paramName: '.$paramName), 'status');
-  $requestUrl = $baseUrl."/parameterdetails".$paramName;
-  drupal_set_message(t('[_serviceGetParameterDetails] requestUrl: '.$requestUrl), 'status');
-
-  $xmlDoc = clustalo_rest_request($requestUrl);
-  drupal_set_message(t('[_serviceGetParameterDetails] End'), 'status');
-  return $xmlDoc;
-}*/
-
-/*
- * Print description of a parameter
- */
-/*function _printGetParameterDetails($paramName) {
-  drupal_set_message(t('[_printGetParameterDetails] Begin'), 'status');
-  $xmlDoc = _serviceGetParameterDetails($paramName);
-  $xml = simplexml_load_string($xmlDoc);
-
-  $detail = '';
-  $detail .= $xml->name."\t".$xml->type."\n".$xml->description;
-  foreach ($doc->value as $value) {
-    $detail .= $value.' ';
-    if ((string)$value['defaultValue']) == 'true' {
-      $detail .= 'default';
-    }
-    $detail .= "\n"."\t".string($value->label);
-    if (array_key_exists($value['properties'])) {
-      foreach ($value['properties'] as $properties => $property) {
-        if $property == 'wsProperty' {
-          print "\t".string($property['wsProperty']['key'])."\t".
-        }
-      }
-    }
-  }
-  drupal_set_message(t('[_printGetParameterDetails] End'), 'status');
-}*/
-
