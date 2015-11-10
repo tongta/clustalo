@@ -83,14 +83,14 @@ function clustalo_submit_job($parameters, $phylo) {
   $options['stype'] = array_key_exists('stype', $parameters) ? $parameters['stype'] : '';
   $options['sequence'] = array_key_exists('sequence', $parameters) ? $parameters['sequence'] : '';
 
-  $options['email'] = array_key_exists('email', $parameters) ? $parameters['email'] : '';
+  $options['email'] = array_key_exists('email', $parameters) ? $parameters['email'] : 'admin@licebase.org';
   $options['title'] = array_key_exists('title', $parameters) ? $parameters['title'] : '';
   $options['outfile'] = array_key_exists('outfile', $parameters) ? $parameters['outfile'] : '';
   $options['outformat'] = array_key_exists('outformat', $parameters) ? $parameters['outformat'] : '';
   $options['jobid'] = array_key_exists('jobid', $parameters) ? $parameters['jobid'] : '';
 
   // Submit job
-  if (($options['email'] != '') && ($options['jobid']=='') && ($options['sequence'] != '')) {
+  if (($options['jobid']=='') && ($options['sequence'] != '')) {
     $params = array();
     $params['email'] = $options['email'];
     $params['guidetreeout'] = $options['guidetreeout'];
